@@ -1,0 +1,59 @@
+# Verifies the SDK against the shared contract, on the wheel that would
+# actually be published rather than on the source tree, so a broken package
+# layout fails here instead of on somebody's install.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Lint
+        run: uv run --python ${{ matrix.python }} ruff check .
+
+      - name: Format
+        run: uv run --python ${{ matrix.python }} ruff format --check .
+
+      - name: Types
+        run: uv run --python ${{ matrix.python }} mypy
+
+      - name: Tests, plus the shared gateway vectors
+        run: uv run --python ${{ matrix.python }} pytest -q
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Conformance, against the built wheel
+        run: |
+          uv build
+          uv venv --python ${{ matrix.python }} .conformance-venv
+          uv pip install --python .conformance-venv/bin/python --quiet dist/*.whl
+          npm --prefix contract/harness install
+          MF_PYTHON="$PWD/.conformance-venv/bin/python" \
+            npm --prefix contract/harness run conformance python

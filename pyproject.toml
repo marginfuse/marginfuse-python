@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "marginfuse"
+version = "0.1.0"
+description = "MarginFuse server-side SDK. AI profitability guardrails: connect revenue to per-request AI cost and stop loss-making requests before they run. Sends usage metadata only, never prompts or responses."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Pemira Labs" }]
+requires-python = ">=3.9"
+keywords = ["ai", "llm", "cost", "margin", "profitability", "stripe", "openai", "anthropic", "openrouter"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://marginfuse.com"
+Documentation = "https://marginfuse.com/docs"
+Source = "https://github.com/marginfuse/marginfuse-python"
+Issues = "https://github.com/marginfuse/marginfuse-python/issues"
+Changelog = "https://github.com/marginfuse/marginfuse-python/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = ["pytest>=8", "mypy>=1.11", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/marginfuse"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests", "conformance_runner.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# PEP 604 unions (X | None) are only strings under `from __future__ import
+# annotations`, so they import fine on 3.9 and then fail the moment anything
+# resolves them: typing.get_type_hints, FastAPI, Pydantic, any dataclass
+# serializer. This package claims 3.9, so it uses Optional.
+ignore = ["UP007", "UP045"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

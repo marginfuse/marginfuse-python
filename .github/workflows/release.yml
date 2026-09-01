@@ -1,0 +1,62 @@
+# Publishes to PyPI when a v* tag is pushed.
+#
+# No PyPI token exists anywhere in this repository or its secrets. Publishing
+# authenticates through OIDC trusted publishing, which PyPI verifies against
+# this exact workflow in this exact repository, and the upload carries
+# attestations so the build that produced it is publicly verifiable.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: astral-sh/setup-uv@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: The tag must match the version being published
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(uv run --no-project python -c "
+          import re,pathlib
+          print(re.search(r'^version = \"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text(), re.M).group(1))
+          ")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag v$TAG does not match pyproject.toml $PKG"
+            exit 1
+          fi
+
+      - run: uv run ruff check .
+      - run: uv run mypy
+      - run: uv run pytest -q
+      - run: uv build
+
+      - name: Conformance must pass before anything is published
+        run: |
+          uv venv .conformance-venv
+          uv pip install --python .conformance-venv/bin/python --quiet dist/*.whl
+          npm --prefix contract/harness install
+          MF_PYTHON="$PWD/.conformance-venv/bin/python" \
+            npm --prefix contract/harness run conformance python
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
