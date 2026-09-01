@@ -27,6 +27,7 @@ from ._types import (
 )
 
 __all__ = [
+    "CONTRACT_VERSION",
     "Acknowledgment",
     "Decision",
     "DecisionAction",
@@ -39,3 +40,14 @@ __all__ = [
 ]
 
 __version__ = "0.1.0"
+
+#: The version of the shared SDK contract this build was verified against.
+#:
+#: Package versions differ per language, because each tracks its own breaking
+#: changes: a rename in Python must not tell Node users something broke. What
+#: makes the SDKs interchangeable is this, not the package version. Two SDKs
+#: reporting the same contract version have passed the same scenarios and the
+#: same vectors.
+#:
+#: See github.com/marginfuse/sdk-contract.
+CONTRACT_VERSION = 1
