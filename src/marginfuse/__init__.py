@@ -25,6 +25,7 @@ from ._types import (
     ProviderCall,
     Usage,
 )
+from ._version import __version__ as __version__
 
 __all__ = [
     "CONTRACT_VERSION",
@@ -39,7 +40,6 @@ __all__ = [
     "from_openrouter",
 ]
 
-__version__ = "0.1.0"
 
 #: The version of the shared SDK contract this build was verified against.
 #:

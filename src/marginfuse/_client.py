@@ -30,13 +30,14 @@ from ._types import (
     ProviderCall,
     Usage,
 )
+from ._version import __version__
 
 __all__ = ["MarginFuse"]
 
 DEFAULT_BASE_URL = "https://api.marginfuse.com"
 DEFAULT_TIMEOUT = 1.5
 TRACK_RETRIES = 3
-USER_AGENT = "marginfuse-python/0.1.0"
+USER_AGENT = f"marginfuse-python/{__version__}"
 
 _USAGE_WIRE = {
     "input_tokens": "inputTokens",
