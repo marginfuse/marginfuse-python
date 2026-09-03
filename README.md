@@ -106,9 +106,9 @@ on:
 ```python
 result = mf.identify(
     customer_id="user_8x2m91",
-    plan="pro",                    # the key of a plan you declared in Settings
+    plan="pro",  # the key of a plan you declared in Settings
     name="Acme Studio",
-    metadata={"tier": "legacy"},   # labels segment policies can match on
+    metadata={"tier": "legacy"},  # labels segment policies can match on
 )
 
 if not result.ok:
