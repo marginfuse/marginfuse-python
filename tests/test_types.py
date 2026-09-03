@@ -11,16 +11,16 @@ from __future__ import annotations
 import typing
 
 import marginfuse
-from marginfuse import Decision, GuardOutcome, ProviderCall, Usage
+from marginfuse import Decision, GuardOutcome, IdentifyResult, ProviderCall, Usage
 
 
 def test_public_types_resolve() -> None:
-    for target in (Usage, Decision, ProviderCall, GuardOutcome):
+    for target in (Usage, Decision, ProviderCall, GuardOutcome, IdentifyResult):
         assert typing.get_type_hints(target)
 
 
 def test_client_signatures_resolve() -> None:
-    for name in ("decide", "track", "guard", "acknowledge", "flush"):
+    for name in ("decide", "track", "guard", "acknowledge", "identify", "flush"):
         assert typing.get_type_hints(getattr(marginfuse.MarginFuse, name)) is not None
 
 
@@ -47,6 +47,6 @@ def test_no_field_can_carry_content() -> None:
         "document",
         "documents",
     }
-    for target in (Usage, Decision, ProviderCall):
+    for target in (Usage, Decision, ProviderCall, IdentifyResult):
         for field in typing.get_type_hints(target):
             assert field.lower() not in banned, f"{target.__name__}.{field}"

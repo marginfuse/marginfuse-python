@@ -26,6 +26,7 @@ from ._types import (
     Acknowledgment,
     Decision,
     GuardOutcome,
+    IdentifyResult,
     Outcome,
     ProviderCall,
     Usage,
@@ -117,6 +118,7 @@ class MarginFuse:
         customer_id: str,
         provider: str,
         model: str,
+        plan: Optional[str] = None,
         feature: Optional[str] = None,
         expected_usage: Optional[Usage] = None,
     ) -> Decision:
@@ -129,6 +131,7 @@ class MarginFuse:
         payload = _drop_none(
             {
                 "customerId": customer_id,
+                "plan": plan,
                 "feature": feature,
                 "provider": provider,
                 "model": model,
@@ -164,6 +167,7 @@ class MarginFuse:
         provider: str,
         model: str,
         usage: Optional[Usage] = None,
+        plan: Optional[str] = None,
         feature: Optional[str] = None,
         requested_model: Optional[str] = None,
         cost_usd: Optional[str] = None,
@@ -186,6 +190,7 @@ class MarginFuse:
             {
                 "eventId": event_id or f"evt_{uuid.uuid4()}",
                 "customerId": customer_id,
+                "plan": plan,
                 "feature": feature,
                 "provider": provider,
                 "model": model,
@@ -200,6 +205,69 @@ class MarginFuse:
             }
         )
         self._background(lambda: self._send_event(event))
+
+    def identify(
+        self,
+        *,
+        customer_id: str,
+        plan: Optional[str] = None,
+        clear_plan: bool = False,
+        period_start: Optional[datetime] = None,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> IdentifyResult:
+        """Tell MarginFuse who a customer is and what plan they are on.
+
+        ``plan`` is the key of a plan you declared in MarginFuse Settings, not
+        a Stripe price id. MarginFuse derives that customer's revenue from the
+        plan's price for every cycle, which is what makes margin per customer
+        and margin policies work with no revenue source connected. Those
+        figures are labeled as a declared price wherever they appear, because
+        nobody confirmed collection.
+
+        Safe to call on every sign-in: sending the plan the customer is already
+        on changes nothing. Sending a different one ends the current cycle at
+        that moment and prorates what accrued. ``period_start`` backdates the
+        cycle for a customer who has been paying since an earlier date;
+        ``clear_plan`` takes them off plans entirely.
+
+        Unlike :meth:`track`, this waits and reports failure. track() has a
+        safe default - retry later - and "I could not record what this customer
+        pays" has none, because a wrong plan is a wrong margin. It still never
+        raises: check ``result.ok``, and ``on_error`` is called too.
+        """
+        when = period_start
+        if when is not None and when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        payload = _drop_none(
+            {
+                "customerId": customer_id,
+                "plan": plan,
+                "clearPlan": True if clear_plan else None,
+                "periodStart": when.isoformat().replace("+00:00", "Z") if when else None,
+                "name": name,
+                "email": email,
+                "metadata": metadata,
+            }
+        )
+        try:
+            res = self._post("/v1/identify", payload, 5.0)
+            if res.status < 200 or res.status >= 300:
+                err = RuntimeError(f"identify: HTTP {res.status} {res.text()}")
+                self._report(err, "identify")
+                return IdentifyResult(ok=False, error=str(err))
+            body = res.json()
+            return IdentifyResult(
+                ok=True,
+                customer_id=body.get("customerId"),
+                plan=body.get("plan"),
+                period_start=body.get("periodStart"),
+                period_end=body.get("periodEnd"),
+            )
+        except Exception as err:
+            self._report(err, "identify")
+            return IdentifyResult(ok=False, error=str(err))
 
     def track_and_wait(self, **kwargs: Any) -> None:
         """track() for jobs and scripts that must not exit early."""
@@ -230,6 +298,7 @@ class MarginFuse:
         customer_id: str,
         provider: str,
         model: str,
+        plan: Optional[str] = None,
         feature: Optional[str] = None,
         expected_usage: Optional[Usage] = None,
     ) -> GuardOutcome:
@@ -249,6 +318,7 @@ class MarginFuse:
         """
         decision = self.decide(
             customer_id=customer_id,
+            plan=plan,
             provider=provider,
             model=model,
             feature=feature,
@@ -274,6 +344,7 @@ class MarginFuse:
             # usage; a corrected event can carry the real numbers later.
             self.track(
                 customer_id=customer_id,
+                plan=plan,
                 feature=feature,
                 provider=provider,
                 model=model_to_use,
@@ -288,6 +359,7 @@ class MarginFuse:
 
         self.track(
             customer_id=customer_id,
+            plan=plan,
             feature=feature,
             provider=provider,
             model=model_to_use,

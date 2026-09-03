@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime
 from typing import Any
 
 from marginfuse import MarginFuse, ProviderCall, Usage
@@ -28,6 +29,8 @@ USAGE_KEYS = {
 }
 PARAM_KEYS = {
     "customerId": "customer_id",
+    "clearPlan": "clear_plan",
+    "periodStart": "period_start",
     "eventId": "event_id",
     "requestedModel": "requested_model",
     "costUsd": "cost_usd",
@@ -96,6 +99,22 @@ def main() -> None:
             mf.track(**params)
         elif action == "acknowledge":
             mf.acknowledge(params["decision_id"], params["acknowledgment"])
+        elif action == "identify":
+            # The one call that reports failure instead of failing open: a
+            # wrong plan is a wrong margin, so the application must see it.
+            if isinstance(params.get("period_start"), str):
+                params["period_start"] = datetime.fromisoformat(
+                    params["period_start"].replace("Z", "+00:00")
+                )
+            result = mf.identify(**params)
+            report["result"] = {
+                "ok": result.ok,
+                "customerId": result.customer_id,
+                "plan": result.plan,
+                "periodStart": result.period_start,
+                "periodEnd": result.period_end,
+                "error": result.error,
+            }
         elif action == "guard":
             spec = scenario.get("provider") or {}
 

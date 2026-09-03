@@ -70,6 +70,26 @@ class GuardOutcome:
 
 
 @dataclass(frozen=True)
+class IdentifyResult:
+    """What identify() recorded, or why it could not.
+
+    ``ok`` is the only field to branch on. When it is False the call changed
+    nothing and ``error`` says what happened; the SDK still did not raise.
+
+    Unlike track(), identify reports its failures. track() has a safe default -
+    retry later - and "I could not record what this customer pays" has none:
+    a wrong plan is a wrong margin.
+    """
+
+    ok: bool
+    customer_id: Optional[str] = None
+    plan: Optional[str] = None
+    period_start: Optional[str] = None
+    period_end: Optional[str] = None
+    error: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class ProviderCall:
     """What your callback did, handed back to guard() so it can be reported.
 
