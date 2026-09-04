@@ -52,4 +52,4 @@ __all__ = [
 #: same vectors.
 #:
 #: See github.com/marginfuse/sdk-contract.
-CONTRACT_VERSION = 1
+CONTRACT_VERSION = 2

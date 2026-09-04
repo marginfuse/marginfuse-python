@@ -337,6 +337,18 @@ class MarginFuse:
             return GuardOutcome(kind="topup_required", decision=decision)
 
         model_to_use = decision.model if decision.action == "downgrade" else model
+        # A downgrade can cross vendors: the server can answer an OpenAI request
+        # with an Anthropic model. The vendor that ran is the decision's, and
+        # reporting the caller's prices the call from the wrong catalogue,
+        # attributes it to the wrong vendor, and measures the saving the
+        # downgrade exists to prove against the wrong basis. A decision defaults
+        # its provider to the caller's, so anything but a downgrade is unchanged.
+        provider_to_use = decision.provider if decision.action == "downgrade" else provider
+        # What the application did, decided once. A downgrade that ran is a
+        # downgrade whether or not the provider call then failed.
+        acknowledgment: Acknowledgment = (
+            "used_downgrade_model" if decision.action == "downgrade" else "proceeded_as_requested"
+        )
         try:
             call = run(decision)
         except BaseException:
@@ -346,7 +358,7 @@ class MarginFuse:
                 customer_id=customer_id,
                 plan=plan,
                 feature=feature,
-                provider=provider,
+                provider=provider_to_use,
                 model=model_to_use,
                 requested_model=model,
                 usage=Usage(),
@@ -354,14 +366,14 @@ class MarginFuse:
                 decision_id=decision.id,
             )
             if decision.id:
-                self.acknowledge(decision.id, "proceeded_as_requested")
+                self.acknowledge(decision.id, acknowledgment)
             raise
 
         self.track(
             customer_id=customer_id,
             plan=plan,
             feature=feature,
-            provider=provider,
+            provider=provider_to_use,
             model=model_to_use,
             requested_model=model,
             usage=call.usage,
@@ -370,12 +382,7 @@ class MarginFuse:
             decision_id=decision.id,
         )
         if decision.id:
-            self.acknowledge(
-                decision.id,
-                "used_downgrade_model"
-                if decision.action == "downgrade"
-                else "proceeded_as_requested",
-            )
+            self.acknowledge(decision.id, acknowledgment)
         return GuardOutcome(kind="completed", decision=decision, result=call.result)
 
     def flush(self, timeout: Optional[float] = None) -> None:
